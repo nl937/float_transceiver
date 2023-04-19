@@ -6,9 +6,10 @@
 #include <SoftwareSerial.h>
 
 //Motor and solenoid relay pins
-#define PUMP_INPUT_1 14
-#define PUMP_INPUT_2 15
-#define SOLENOID_RELAY 16
+#define PUMP_INPUT_1 A3
+#define PUMP_INPUT_2 A2
+#define SOLENOID_RELAY_1 A1
+#define SOLENOID_RELAY_2 A0
 
 //Into external bladder
 #define FORWARD true 
@@ -57,14 +58,16 @@ void pumpoff(){
 }
 
 void solenoidopen(){
-  digitalWrite(SOLENOID_RELAY, HIGH);
+  digitalWrite(SOLENOID_RELAY_2, HIGH);
 }
 
 void solenoidclose(){
-  digitalWrite(SOLENOID_RELAY, LOW);
+  digitalWrite(SOLENOID_RELAY_2, LOW);
 }
 
 void setup() {
+  digitalWrite(SOLENOID_RELAY_1, LOW);
+  digitalWrite(SOLENOID_RELAY_2, LOW);
   //Initalize FTDI
   Serial.begin(9600);
   XBee.begin(9600);
@@ -87,24 +90,28 @@ void setup() {
     Serial.println("Current time less than compiled time");
     Rtc.adjust(compiled);
   }
-  wirelessprint("Type BEGIN to start profiles");
+  wirelessprint("Type anything to start profiles");
   while(true){
-    while(XBee.available()){
+    /*while(XBee.available() > 0){
       char data = XBee.read();
+      wirelessprint(data);
       XBeeData.concat(data);
-      if(data == '\n'){
+      if(data == '\n'){ 
         break;
       }
     }
-    if(XBeeData == "BEGIN"){
+    if(XBeeData == "BEGIN\n"){
       break;
     }
     else{
       XBeeData = "";
+    }*/
+    if(XBee.available() > 0){
+      break;
     }
   }
   wirelessprint("Beginning profiles in 10 seconds");
-  for(int i = 0; i < 10; i++){
+  for(int i = 9; i >= 0; i--){
     XBee.print("Diving in ");
     XBee.print(i+1);
     XBee.print(" seconds\n");
@@ -120,6 +127,7 @@ void setup() {
   delay(PROFILE_DELAY);
   //Ascent
   pumpon(FORWARD);
+  solenoidopen();
   delay(PUMP_TIME);
   solenoidclose();
   pumpoff();
@@ -139,6 +147,7 @@ void setup() {
   pumpoff();
   delay(PROFILE_DELAY);
   //Ascent
+  solenoidopen();
   pumpon(FORWARD);
   delay(PUMP_TIME);
   solenoidclose();
