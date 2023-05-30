@@ -6,8 +6,8 @@
 #include <SoftwareSerial.h>
 
 //Motor and solenoid relay pins
-#define PUMP_INPUT_1 A3
-#define PUMP_INPUT_2 A2
+#define PUMP_INPUT_1 A1
+#define PUMP_INPUT_2 A0
 #define SOLENOID_RELAY_1 A1
 #define SOLENOID_RELAY_2 A0
 
@@ -16,8 +16,8 @@
 //Into internal bladder
 #define BACKWARD false
 
-//Pump time (ms)
-#define PUMP_TIME 10000
+//Pump time (ms) (8000 for used batteries!)
+#define PUMP_TIME 8000
 
 //Profile delay (ms)
 #define PROFILE_DELAY 8000
@@ -57,59 +57,113 @@ void pumpoff(){
   digitalWrite(PUMP_INPUT_2, LOW);
 }
 
-void solenoidopen(){
-  digitalWrite(SOLENOID_RELAY_2, HIGH);
+void serialflush(){
+  char dummy;
+  while(XBee.available() > 0){
+    dummy = XBee.read();
+  }
 }
 
-void solenoidclose(){
-  digitalWrite(SOLENOID_RELAY_2, LOW);
+void pumpdelay(int delaytime, bool direct, bool transmit){
+  int b;
+  for(int i = 0; i < PUMP_TIME; i++){
+    if(transmit){
+      if(!(i % 1000)){
+        DateTime current = Rtc.now();
+        wirelessprint("Company number: R1");
+        wirelessprint(current.tostr(buf));
+      }
+    }
+    if(!(i % 200)){
+      b++;
+    }
+    if(!(b % 2)){
+      pumpon(direct);
+    }
+    else{
+      pumpoff();
+    }
+    delay(1);
+  }
+  pumpoff();
 }
 
 void setup() {
+  pinMode(PUMP_INPUT_1, OUTPUT);
+  pinMode(PUMP_INPUT_2, OUTPUT);
   digitalWrite(SOLENOID_RELAY_1, LOW);
   digitalWrite(SOLENOID_RELAY_2, LOW);
+  digitalWrite(PUMP_INPUT_1, LOW);
+  digitalWrite(PUMP_INPUT_2, LOW);
   //Initalize FTDI
   Serial.begin(9600);
   XBee.begin(9600);
-  Serial.println("FE-01 initializing");
-  Serial.print("\nCompiled at: ");
-  Serial.print(__DATE__);
-  Serial.print(__TIME__);
-  wirelessprint(__DATE__);
-  wirelessprint(__TIME__);
-  Serial.print("\n");
+  //Initialize RTC
   Wire.begin();
   Rtc.begin();
+  wirelessprint("Current time: ");
+  wirelessprint((Rtc.now()).tostr(buf));
+  wirelessprint('\n');
   DateTime compiled = DateTime(__DATE__, __TIME__);
+  DateTime newtime = DateTime(compiled.year(), compiled.month(), compiled.day(), compiled.hour() + 4, compiled.minute(), compiled.second() + 5);
   if (!Rtc.isrunning()) {
     Serial.println("Setting RTC to compiled time");
     wirelessprint("Setting RTC to compiled time");
-    Rtc.adjust(compiled);
+    Rtc.adjust(newtime);
   }
-  if(Rtc.now() < compiled){
+  if(Rtc.now() < newtime){
     Serial.println("Current time less than compiled time");
-    Rtc.adjust(compiled);
+    Rtc.adjust(newtime);
   }
-  wirelessprint("Type anything to start profiles");
+  wirelessprint("Type anything to start filling");
   while(true){
-    /*while(XBee.available() > 0){
-      char data = XBee.read();
-      wirelessprint(data);
-      XBeeData.concat(data);
-      if(data == '\n'){ 
-        break;
-      }
-    }
-    if(XBeeData == "BEGIN\n"){
-      break;
-    }
-    else{
-      XBeeData = "";
-    }*/
     if(XBee.available() > 0){
       break;
     }
   }
+  serialflush();
+  wirelessprint("Beginning filling in 5 seconds");
+  for(int i = 5; i >= 0; i--){
+    XBee.print("Filling in ");
+    XBee.print(i+1);
+    XBee.print(" seconds\n");
+    delay(1000);
+  }
+  wirelessprint("Beginning filling");
+  pumpon(BACKWARD);
+  delay(PUMP_TIME);
+  pumpdelay(PROFILE_DELAY, BACKWARD, false);
+  wirelessprint("Type anything to exhaust");
+  serialflush();
+  while(true){
+    if(XBee.available() > 0){
+      break;
+    }
+  }
+  serialflush();
+  wirelessprint("Beginning exhaust in 5 seconds");
+  for(int i = 5; i >= 0; i--){
+    XBee.print("Exhausting in ");
+    XBee.print(i+1);
+    XBee.print(" seconds\n");
+    delay(1000);
+  }
+  wirelessprint("Beginning exhaust");
+  pumpon(FORWARD);
+  delay(PUMP_TIME);
+  pumpdelay(PROFILE_DELAY, FORWARD, false);
+  serialflush();
+  wirelessprint("Type anything to start profiles");
+  while(true){
+    if(XBee.available() > 0){
+      break;
+    }
+    DateTime current = Rtc.now();
+    wirelessprint("R1");
+    wirelessprint(current.tostr(buf));
+    delay(1000);
+  }
+  serialflush();
   wirelessprint("Beginning profiles in 10 seconds");
   for(int i = 9; i >= 0; i--){
     XBee.print("Diving in ");
@@ -119,45 +173,57 @@ void setup() {
   }
   wirelessprint("Beginning profile 1");
   //Descend
-  solenoidopen();
+  //solenoidopen(); 
   pumpon(BACKWARD);
   delay(PUMP_TIME);
-  solenoidclose();
+  //solenoidclose();
   pumpoff();
   delay(PROFILE_DELAY);
+  //pumpdelay(PROFILE_DELAY, BACKWARD, false);
+  pumpoff();
   //Ascent
   pumpon(FORWARD);
-  solenoidopen();
-  delay(PUMP_TIME);
-  solenoidclose();
+  //solenoidopen();
+  delay(PUMP_TIME+4000);
+  //solenoidclose();
   pumpoff();
   //Report time + team number
+  pumpdelay(PUMP_TIME+14000, FORWARD, false);
   for(int i = 0; i < 30; i++){
     DateTime current = Rtc.now();
-    wirelessprint("Deep Sea Tactics! :)");
+    wirelessprint("Company number: R1");
     wirelessprint(current.tostr(buf));
     delay(1000);
   }
+  serialflush();
+  wirelessprint("Type anything to start second profile");
+  while(true){
+    if(XBee.available() > 0){
+      break;
+    }
+  }
+  serialflush();
   wirelessprint("Beginning profile 2");
   //Descend
-  solenoidopen();
   pumpon(BACKWARD);
   delay(PUMP_TIME);
-  solenoidclose();
   pumpoff();
+  //pumpdelay(PROFILE_DELAY, BACKWARD, false);
+  //pumpoff();
   delay(PROFILE_DELAY);
   //Ascent
-  solenoidopen();
   pumpon(FORWARD);
-  delay(PUMP_TIME);
-  solenoidclose();
+  delay(PUMP_TIME+4000);
+  //
+  pumpoff();
+  pumpdelay(PUMP_TIME+14000, FORWARD, false);
   pumpoff();
 }
 
 void loop() {
   //Report time + team number
   DateTime current = Rtc.now();
-  wirelessprint("Deep Sea Tactics! :)");
+  wirelessprint("Company number: R1");
   wirelessprint(current.tostr(buf));
   delay(1000);
 }
