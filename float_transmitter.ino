@@ -16,8 +16,8 @@
 //Into internal bladder
 #define BACKWARD false
 
-//Pump time (ms) (8000 for used batteries!)
-#define PUMP_TIME 8000
+//Pump time (ms)
+#define PUMP_TIME 9500
 
 //Profile delay (ms)
 #define PROFILE_DELAY 8000
@@ -33,6 +33,7 @@ bool writetime;
 bool profile;
 
 String XBeeData;
+int a;
 
 void wirelessprint(char* message) {
   XBee.write(message);
@@ -150,11 +151,17 @@ void setup() {
   }
   wirelessprint("Beginning exhaust");
   pumpon(FORWARD);
-  delay(PUMP_TIME);
+  delay(PUMP_TIME+4000);
   pumpdelay(PROFILE_DELAY, FORWARD, false);
   serialflush();
   wirelessprint("Type anything to start profiles");
   while(true){
+    if(!(a % 2)){
+      pumpon(FORWARD);
+    }
+    else{
+      pumpoff();
+    }
     if(XBee.available() > 0){
       break;
     }
@@ -162,8 +169,10 @@ void setup() {
     wirelessprint("R1");
     wirelessprint(current.tostr(buf));
     delay(1000);
+    a++;
   }
   serialflush();
+  pumpoff();
   wirelessprint("Beginning profiles in 10 seconds");
   for(int i = 9; i >= 0; i--){
     XBee.print("Diving in ");
@@ -188,8 +197,14 @@ void setup() {
   //solenoidclose();
   pumpoff();
   //Report time + team number
-  pumpdelay(PUMP_TIME+14000, FORWARD, false);
-  for(int i = 0; i < 30; i++){
+  pumpdelay(PUMP_TIME+6000, FORWARD, false);
+  for(int i = 0; i < 10; i++){
+    if(!(i % 2)){
+      pumpon(FORWARD);
+    }
+    else{
+      pumpoff();
+    }
     DateTime current = Rtc.now();
     wirelessprint("Company number: R1");
     wirelessprint(current.tostr(buf));
@@ -197,12 +212,14 @@ void setup() {
   }
   serialflush();
   wirelessprint("Type anything to start second profile");
+  pumpon(FORWARD);
   while(true){
     if(XBee.available() > 0){
       break;
     }
   }
   serialflush();
+  pumpoff();
   wirelessprint("Beginning profile 2");
   //Descend
   pumpon(BACKWARD);
@@ -212,18 +229,26 @@ void setup() {
   //pumpoff();
   delay(PROFILE_DELAY);
   //Ascent
-  pumpon(FORWARD);
+  pumpon(FORWARD+4000);
   delay(PUMP_TIME+4000);
   //
   pumpoff();
-  pumpdelay(PUMP_TIME+14000, FORWARD, false);
+  pumpdelay(PUMP_TIME+8000, FORWARD, false);
   pumpoff();
+  a=0;
 }
 
 void loop() {
+  if(!(a % 2)){
+      pumpon(FORWARD);
+    }
+    else{
+      pumpoff();
+    }
   //Report time + team number
   DateTime current = Rtc.now();
   wirelessprint("Company number: R1");
   wirelessprint(current.tostr(buf));
   delay(1000);
+  a++;
 }
